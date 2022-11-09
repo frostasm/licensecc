@@ -32,8 +32,10 @@ ELSE(UNIX OR OPENSSL_FOUND)
         windows/network.cpp)
 ENDIF(UNIX OR OPENSSL_FOUND)
 
-#dependency of signature_verifier.cpp
-add_dependencies( os project_initialize )
+IF(LCC_INITIALIZE_LICENSE_PROJECT)
+    #dependency of signature_verifier.cpp
+    add_dependencies(os project_initialize)
+ENDIF(LCC_INITIALIZE_LICENSE_PROJECT)
 
 if(CODE_COVERAGE AND UNIX)
 	  target_compile_options(os PUBLIC -O0 -g --coverage)

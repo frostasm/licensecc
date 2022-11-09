@@ -5,6 +5,8 @@ SET(LICENSECC_SHORT_LICENSE "BSD Software License")
 SET(CMAKE_DISABLE_SOURCE_CHANGES OFF) #keys are generated in the source tree by default
 SET(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
+OPTION(LCC_INITIALIZE_LICENSE_PROJECT "Enable generating license project if missing" OFF)
+
 IF(NOT LCC_PROJECT_NAME)
 	message(STATUS "You should define a variable LCC_PROJECT_NAME containing the name of the software you want to add a license to."
 		"A mock project named DEFAULT has been added for you.")
@@ -13,7 +15,7 @@ ENDIF(NOT LCC_PROJECT_NAME)
 
 #base folder where projects are stored (/projects)
 IF(NOT LCC_PROJECTS_BASE_DIR)
-	set(LCC_PROJECTS_BASE_DIR "${CMAKE_SOURCE_DIR}/projects") 
+        set(LCC_PROJECTS_BASE_DIR "${CMAKE_SOURCE_DIR}/lcc_projects")
 ENDIF(NOT LCC_PROJECTS_BASE_DIR)
 
 cmake_policy(SET CMP0048 NEW)
@@ -27,8 +29,10 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
-#find lccgen executable or build it.
-find_package(lccgen REQUIRED) 
+IF(LCC_INITIALIZE_LICENSE_PROJECT)
+    #find lccgen executable or build it.
+    find_package(lccgen REQUIRED)
+ENDIF(LCC_INITIALIZE_LICENSE_PROJECT)
 
 #In case the build system doesn't support binfmt misc
 IF( ( CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" ) AND CMAKE_CROSSCOMPILING AND NOT DEFINED CMAKE_CROSSCOMPILING_EMULATOR )
@@ -105,17 +109,20 @@ else(UNIX)
 	set(pkg_config_dest "cmake/${PROJECT_NAME}")
 endif(UNIX)
 
-#initialize project
-#load the current project from files or find it from environment variables or create a default one
 set(LCC_INCLUDE_DIR "${LCC_PROJECTS_BASE_DIR}/${LCC_PROJECT_NAME}/include/${PROJECT_NAME}/${LCC_PROJECT_NAME}" )
 set(LCC_PROJECT_PUBLIC_KEY "${LCC_INCLUDE_DIR}/public_key.h" )
 set(LCC_PROJECT_PRIVATE_KEY "${LCC_PROJECTS_BASE_DIR}/${LCC_PROJECT_NAME}/private_key.rsa" )
 
-add_custom_target(project_initialize
-  COMMAND license_generator::lccgen project initialize -t "${PROJECT_SOURCE_DIR}/src/templates" -n "${LCC_PROJECT_NAME}" -p "${LCC_PROJECTS_BASE_DIR}"
-  COMMENT "generating ${LCC_PROJECT_PUBLIC_KEY} and ${LCC_PROJECT_PRIVATE_KEY} if they don't already exist"
-  USES_TERMINAL
-)
+IF(LCC_INITIALIZE_LICENSE_PROJECT)
+    #initialize project
+    #load the current project from files or find it from environment variables or create a default one
+    add_custom_target(project_initialize
+      COMMAND license_generator::lccgen project initialize -t "${PROJECT_SOURCE_DIR}/src/templates" -n "${LCC_PROJECT_NAME}" -p "${LCC_PROJECTS_BASE_DIR}"
+      COMMENT "generating ${LCC_PROJECT_PUBLIC_KEY} and ${LCC_PROJECT_PRIVATE_KEY} if they don't already exist"
+      USES_TERMINAL
+    )
+ENDIF(LCC_INITIALIZE_LICENSE_PROJECT)
+
 
 include_directories( ${LCC_INCLUDE_DIR} "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 
