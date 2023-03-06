@@ -65,7 +65,7 @@ FUNCTION_RETURN LicenseVerifier::verify_limits(const FullLicenseInfo& lic_info) 
 }
 
 LicenseInfo LicenseVerifier::toLicenseInfo(const FullLicenseInfo& fullLicInfo) const {
-	LicenseInfo info;
+	LicenseInfo info = {}; // initialize with zeros
 	info.license_type = LCC_LOCAL;
 
 	const auto expiry = fullLicInfo.m_limits.find(PARAM_EXPIRY_DATE);
