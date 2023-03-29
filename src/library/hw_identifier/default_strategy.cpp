@@ -16,23 +16,23 @@ namespace hw_identifier {
 static vector<LCC_API_HW_IDENTIFICATION_STRATEGY> available_strategies() {
 	const os::ExecutionEnvironment exec;
 	LCC_API_VIRTUALIZATION_SUMMARY virtualization = exec.virtualization();
-	vector<LCC_API_HW_IDENTIFICATION_STRATEGY> strategy_to_try;
+	vector<LCC_API_HW_IDENTIFICATION_STRATEGY> strategies_to_try;
 	if (virtualization == LCC_API_VIRTUALIZATION_SUMMARY::CONTAINER) {
 		if (exec.is_docker()) {
-			strategy_to_try = LCC_DOCKER_STRATEGIES;
+			strategies_to_try = LCC_DOCKER_STRATEGIES;
 		} else {
-			strategy_to_try = LCC_LXC_STRATEGIES;
+			strategies_to_try = LCC_LXC_STRATEGIES;
 		}
 	} else if (virtualization == LCC_API_VIRTUALIZATION_SUMMARY::VM) {
 		if (exec.is_cloud()) {
-			strategy_to_try = LCC_CLOUD_STRATEGIES;
+			strategies_to_try = LCC_CLOUD_STRATEGIES;
 		} else {
-			strategy_to_try = LCC_VM_STRATEGIES;
+			strategies_to_try = LCC_VM_STRATEGIES;
 		}
 	} else {
-		strategy_to_try = LCC_BARE_TO_METAL_STRATEGIES;
+		strategies_to_try = LCC_BARE_TO_METAL_STRATEGIES;
 	}
-	return strategy_to_try;
+	return strategies_to_try;
 }
 
 DefaultStrategy::DefaultStrategy() {}

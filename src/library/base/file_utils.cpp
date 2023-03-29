@@ -9,10 +9,14 @@
 #include <string>
 #include <cerrno>
 #include <iostream>
+#include <sstream>
 #include <algorithm>
 #include <errno.h>
 #include <cstring>
+
 #include "file_utils.hpp"
+#include "string_utils.h"
+
 
 namespace license {
 using namespace std;
@@ -67,6 +71,40 @@ string remove_extension(const string& path) {
 		return path;
 	}
 	return path.substr(0, dotpos);
+}
+
+string read_text_file(const std::string &file_path, bool * const read_ok)
+{
+	std::ifstream file(file_path);
+	if (read_ok) {
+		*read_ok = bool(file);
+	}
+
+	if (file) {
+		std::stringstream buffer;
+		buffer << file.rdbuf();
+		const std::string file_contents = buffer.str();
+		return file_contents;
+	}
+	return {};
+
+}
+
+std::vector<string> read_lines_text_file(const std::string &file_path, const std::string &separator,
+										 const bool keep_empty, bool * const read_ok)
+{
+	const std::string file_text = read_text_file(file_path, read_ok);
+	const std::vector<std::string> text_lines = split_string(file_text, separator, keep_empty);
+	return text_lines;
+}
+
+std::vector<string> filter_lines_text_file(const std::string &text_file_path, const std::string &filter_text,
+										   const std::string &lines_separator, bool * const read_ok)
+{
+	const std::string file_text = read_text_file(text_file_path, read_ok);
+	const std::vector<std::string> text_lines = split_string(file_text, lines_separator);
+	const std::vector<std::string> filtered_lines = filter_string_lines(text_lines, filter_text);
+	return filtered_lines;
 }
 
 }

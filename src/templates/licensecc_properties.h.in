@@ -76,6 +76,9 @@ This definition allows to specify a custom expression to verify the magic number
  * ::STRATEGY_DEFAULT Should be used in most cases.
  */
 enum LCC_API_HW_IDENTIFICATION_STRATEGY {
+
+	STRATEGY_NONE = -2,
+
 	/**
 	 * \brief Default strategy.
 	 * 
@@ -98,16 +101,25 @@ enum LCC_API_HW_IDENTIFICATION_STRATEGY {
 	 */	
 	STRATEGY_ETHERNET = 0,
 	STRATEGY_IP_ADDRESS = 1,
+
+	// TODO: rename to STRATEGY_DISK_PARTITION
+	// TODO: try to use UUID of system rootfs partition
+	/**
+	* Use some of system partition UUID (removable drives are excluded)
+	*/
 	STRATEGY_DISK = 2,
 	/**
-	* Not yet implemented
+	* Use operating system rootfs block device serial number
 	*/
-	STRATEGY_CPU_SIZE = 3,
+	STRATEGY_OS_DISK = 3,
 	/**
 	* Not yet implemented
 	*/
-	STRATEGY_HOST_NAME = 4,
-	STRATEGY_NONE = -2
+	STRATEGY_CPU_SIZE = 4,
+	/**
+	* Not yet implemented
+	*/
+	STRATEGY_HOST_NAME = 5,
 };
 
 /**
@@ -117,13 +129,13 @@ enum LCC_API_HW_IDENTIFICATION_STRATEGY {
 /**
  * List the strategies used when no virtual envrionment is detected
  */
-#define LCC_BARE_TO_METAL_STRATEGIES { STRATEGY_DISK, STRATEGY_HOST_NAME, STRATEGY_NONE }
+#define LCC_BARE_TO_METAL_STRATEGIES { STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_HOST_NAME, STRATEGY_NONE }
 /**
  * List the strategies used when the software is executing in a virtual machine
  */
 #define LCC_VM_STRATEGIES { STRATEGY_ETHERNET, STRATEGY_NONE }
 #define LCC_LXC_STRATEGIES { STRATEGY_ETHERNET, STRATEGY_NONE }
-#define LCC_DOCKER_STRATEGIES { STRATEGY_NONE }
+#define LCC_DOCKER_STRATEGIES { STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_NONE }
 /**
  * List the strategies used when it's detected an execution in the cloud
  */

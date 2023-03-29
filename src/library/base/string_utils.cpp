@@ -82,6 +82,54 @@ const vector<string> split_string(const string &licensePositions, char splitchar
 	return seglist;
 }
 
+std::vector<string> split_string(const std::string &str, const std::string &separator, const bool keep_empty)
+{
+	std::vector<std::string> result;
+	std::string::size_type start = 0;
+	std::string::size_type end = str.find(separator);
+
+	while (end != std::string::npos) {
+		if (keep_empty || (end - start > 0)) {
+			result.push_back(str.substr(start, end - start));
+		}
+		start = end + separator.length();
+		end = str.find(separator, start);
+	}
+	result.push_back(str.substr(start));
+
+	return result;
+}
+
+std::vector<string> filter_string_lines(const std::vector<std::string> &string_lines, const std::string &filter_pattern)
+{
+	std::vector<std::string> filtered;
+	std::copy_if(string_lines.cbegin(), string_lines.cend(), std::back_inserter(filtered),
+				 [filter_pattern](const std::string& str) { return str.find(filter_pattern) != std::string::npos; });
+	return filtered;
+}
+
+bool replace_string(std::string &str, const std::string &from, const std::string &to)
+{
+	size_t start_pos = str.find(from);
+	if(start_pos != std::string::npos) {
+		str.replace(start_pos, from.length(), to);
+		return true;
+	}
+	return false;
+}
+
+void print_string_vector(const std::vector<std::string> &vec, const std::string &description)
+{
+	std::cout << description << " [";
+	for (std::vector<std::string>::const_iterator it = vec.begin(); it != vec.end(); ++it) {
+		if (it != vec.begin()) {
+			std::cout << ", ";
+		}
+		std::cout << "\"" << *it << "\"";
+	}
+	std::cout << "]" << std::endl;
+}
+
 const static regex iniSection("\\[.*?\\]");
 const static regex b64("^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$");
 

@@ -13,6 +13,7 @@
 #include "../os.h"
 #include "../../base/logger.h"
 #include "../../base/string_utils.h"
+#include "../../base/file_utils.hpp"
 
 #include <mntent.h>
 #include <dirent.h>
@@ -313,6 +314,68 @@ static void set_preferred_disks(std::vector<DiskInfo> &diskInfos, std::unordered
 }
 
 /**
+ * Try to read rootfs block device (disk) serial number
+ * @param diskInfo used to output the disk information
+ * @return
+ */
+FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfo) {
+	using namespace std;
+	const vector<string> rootfs_mount_lines = filter_lines_text_file("/proc/mounts", " / ", "\n");
+	if (rootfs_mount_lines.size() != 1) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	const vector<string> mount_columns = split_string(rootfs_mount_lines[0], " ");
+	if (mount_columns.size() == 0) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	// /dev/sda1 - for example
+	const string partition_dev_path = mount_columns[0];
+	if (partition_dev_path.find("/dev/") != 0) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	const vector<string> partition_dev_parts = split_string(partition_dev_path, "/", false);
+	if (partition_dev_parts.size() != 2) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	const string partition_name = partition_dev_parts[1];
+	string sys_fs_partition_path = "/sys/class/block/{DEVNAME}"; // /sys/class/block/sda1
+	replace_string(sys_fs_partition_path, "{DEVNAME}", partition_name);
+
+	// "../../devices/pci00:00/00:17.0/ata1/host0/target/0:0/block/sda/sda1"
+	const string sys_fs_block_device_path = os_readlink(sys_fs_partition_path);
+	const vector<string> block_device_parts = split_string(sys_fs_block_device_path, "/", true);
+	if (block_device_parts.size() < 2) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	// ['..', '..', 'devices', 'pci00:00', '00:17.0', 'ata1', 'host0', 'target', '0:0', 'block', 'sda', 'sda1'] => "sda"
+	const string block_device_name = block_device_parts[block_device_parts.size() - 2];
+	string sys_fs_block_serial_path = "/sys/block/{DEVNAME}/device/serial";
+	replace_string(sys_fs_block_serial_path, "{DEVNAME}", block_device_name);
+
+	const vector<string> serial_text_lines = read_lines_text_file(sys_fs_block_serial_path, "\n", false);
+	if (serial_text_lines.empty()) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
+
+	const string block_device_serial = serial_text_lines[0];
+
+	diskInfo = {};
+	copy_string_to_c_array(partition_dev_path, diskInfo.device);
+	copy_string_to_c_array(block_device_serial, diskInfo.disk_sn);
+	diskInfo.sn_initialized = true;
+	diskInfo.label[0] = '\0';
+	diskInfo.label_initialized = false;
+	diskInfo.preferred = true;
+
+	return FUNCTION_RETURN::FUNC_RET_OK;
+}
+
+/**
  * First try to read disk_infos from /dev/disk/by-uuid folder, if fails try to use
  * blkid cache to see what's in there, then try to exclude removable disks
  * looking at /etc/fstab
@@ -375,4 +438,26 @@ FUNCTION_RETURN getModuleName(char buffer[MAX_PATH]) {
 		result = FUNC_RET_OK;
 	}
 	return result;
+}
+
+std::string os_readlink(std::string const& path, bool * const ok) {
+	char buff[PATH_MAX];
+	const ssize_t len = ::readlink(path.c_str(), buff, sizeof(buff)-1);
+	if (ok) {
+		*ok = len != -1;
+	}
+	if (len != -1) {
+		buff[len] = '\0';
+		return std::string(buff);
+	}
+	return {};
+}
+
+std::string os_realpath(std::string const& path, bool * const ok) {
+	char buff[PATH_MAX];
+	const char* ret = ::realpath(path.c_str(), buff);
+	if (ok) {
+		*ok = ret != nullptr;
+	}
+	return ret ? std::string(buff) : std::string{};
 }

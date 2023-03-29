@@ -4,9 +4,10 @@
  *  Created on: Jan 14, 2020
  *      Author: devel
  */
-#include <string.h>
-#include "../os/os.h"
 #include "disk_strategy.hpp"
+
+#include "../os/os.h"
+
 
 using namespace std;
 namespace license {

@@ -8,6 +8,8 @@
 #ifndef OS_DEPENDENT_HPP_
 #define OS_DEPENDENT_HPP_
 
+#include <string>
+
 #include <stddef.h>
 #include <string.h>
 #include <ctype.h>
@@ -33,6 +35,7 @@ typedef struct {
 	bool preferred;
 } DiskInfo;
 
+FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfos);
 FUNCTION_RETURN getDiskInfos(std::vector<DiskInfo>& diskInfos);
 FUNCTION_RETURN getUserHomePath(char[MAX_PATH]);
 FUNCTION_RETURN getModuleName(char buffer[MAX_PATH]);
@@ -57,6 +60,8 @@ FUNCTION_RETURN getMachineName(unsigned char identifier[6]);
  */
 FUNCTION_RETURN getOsSpecificIdentifier(unsigned char identifier[6]);
 
+std::string os_readlink(std::string const& path, bool * const ok = nullptr);
+std::string os_realpath(std::string const& path, bool * const ok = nullptr);
 
 #ifdef _WIN32
 #define SETENV(VAR, VAL) _putenv_s(VAR, VAL);

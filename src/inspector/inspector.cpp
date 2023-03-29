@@ -17,7 +17,12 @@ using namespace std;
 using namespace license::os;
 
 const map<int, string> stringByStrategyId = {
-	{STRATEGY_DEFAULT, "DEFAULT"}, {STRATEGY_ETHERNET, "MAC"}, {STRATEGY_IP_ADDRESS, "IP"}, {STRATEGY_DISK, "Disk"}};
+	{STRATEGY_DEFAULT, "DEFAULT"},
+	{STRATEGY_OS_DISK, "OS Disk"},
+	{STRATEGY_DISK, "Disk"},
+	{STRATEGY_ETHERNET, "MAC"},
+	{STRATEGY_IP_ADDRESS, "IP"},
+};
 
 const unordered_map<int, string> descByVirtDetail = {{BARE_TO_METAL, "No virtualization"},
 													 {VMWARE, "Vmware"},
@@ -88,7 +93,7 @@ int main(int argc, char* argv[]) {
 	for (const auto& x : stringByStrategyId) {
 		if (identify_pc(static_cast<LCC_API_HW_IDENTIFICATION_STRATEGY>(x.first), hw_identifier, &bufSize,
 						&exec_env_info)) {
-			std::cout << x.second << ':' << hw_identifier << std::endl;
+			std::cout << x.second << ": " << hw_identifier << std::endl;
 		} else {
 			std::cout << x.second << ": NA" << endl;
 		}
