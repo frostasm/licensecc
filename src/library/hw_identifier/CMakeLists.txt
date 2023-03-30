@@ -13,6 +13,8 @@ add_library(hw_identifier OBJECT
 	identification_strategy.cpp
 	hw_identifier.hpp
 	hw_identifier.cpp
+	motherboard_strategy.hpp
+	motherboard_strategy.cpp
 )
 
 if(CODE_COVERAGE AND UNIX)

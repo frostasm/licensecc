@@ -22,7 +22,7 @@ std::string remove_extension(const std::string& path);
  * read proc text files
  */
 std::string read_text_file(const std::string &text_file_path, bool * const read_ok = nullptr);
-std::vector<std::string> read_lines_text_file(const std::string &text_file_path, const std::string& separator,
+std::vector<std::string> read_lines_text_file(const std::string &text_file_path, const std::string& separator = "\n",
 											const bool keep_empty = true, bool * const read_ok = nullptr);
 std::vector<std::string> filter_lines_text_file(const std::string& text_file_path, const std::string& filter_text,
 												const std::string& lines_separator = "\n", bool * const read_ok = nullptr);

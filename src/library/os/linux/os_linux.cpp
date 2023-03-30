@@ -314,6 +314,38 @@ static void set_preferred_disks(std::vector<DiskInfo> &diskInfos, std::unordered
 }
 
 /**
+ * Try to read motherboard info from /sys/devices/virtual/dmi/id/xxxxxx
+ * @param MotherboardInfo used to output the motherboard information
+ * @return
+ */
+FUNCTION_RETURN getMotherboardInfo(MotherboardInfo& motherboardInfo) {
+	using namespace std;
+	motherboardInfo.clear();
+
+	struct DataInfo { string sys_path; string &value; };
+	vector<DataInfo> data_infos{
+		DataInfo{"/sys/devices/virtual/dmi/id/product_uuid", motherboardInfo.product_uuid},
+		DataInfo{"/sys/devices/virtual/dmi/id/product_serial", motherboardInfo.product_serial},
+		DataInfo{"/sys/devices/virtual/dmi/id/board_serial", motherboardInfo.board_serial},
+	};
+
+	// NOTE: on some motherboards linux return system "product_serial" equal to "System Serial Number" instead of real serial number
+	const std::string systemSerialNumberStub = "System Serial Number";
+	for (DataInfo &data: data_infos) {
+		bool read_ok = false;
+		const vector<string> text_lines = read_lines_text_file(data.sys_path, "\n", false, &read_ok);
+		if (!text_lines.empty()) {
+			const std::string trimmed_value = trim_copy(text_lines[0]);
+			if (trimmed_value != systemSerialNumberStub) {
+				data.value = trimmed_value;
+			}
+		}
+	}
+
+	return motherboardInfo.empty() ? FUNCTION_RETURN::FUNC_RET_NOT_AVAIL : FUNCTION_RETURN::FUNC_RET_OK;
+}
+
+/**
  * Try to read rootfs block device (disk) serial number
  * @param diskInfo used to output the disk information
  * @return
@@ -362,11 +394,20 @@ FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfo) {
 		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
 	}
 
-	const string block_device_serial = serial_text_lines[0];
+	const string block_device_serial = trim_copy(serial_text_lines[0]);
+
+#ifndef NDEBUG
+	LOG_DEBUG("rootfs block device \"%s\" serial: \"%s\"", block_device_name.c_str(), block_device_serial.c_str());
+#endif
+
+	if (block_device_serial.empty()) {
+		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
+	}
 
 	diskInfo = {};
 	copy_string_to_c_array(partition_dev_path, diskInfo.device);
 	copy_string_to_c_array(block_device_serial, diskInfo.disk_sn);
+	diskInfo.disk_serial = block_device_serial;
 	diskInfo.sn_initialized = true;
 	diskInfo.label[0] = '\0';
 	diskInfo.label_initialized = false;

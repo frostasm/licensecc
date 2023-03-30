@@ -29,13 +29,29 @@ typedef struct {
 	int id;
 	char device[MAX_PATH];
 	unsigned char disk_sn[8];
+	std::string disk_serial; // full serial number of disk, used with os_disk strategy
 	bool sn_initialized;
 	char label[255];
 	bool label_initialized;
 	bool preferred;
 } DiskInfo;
 
-FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfos);
+struct MotherboardInfo {
+	std::string product_uuid;
+	std::string product_serial;
+	std::string board_serial;
+	void clear() {
+		product_uuid.clear();
+		product_serial.clear();
+		board_serial.clear();
+	}
+	bool empty() const {
+		return product_uuid.empty() && product_serial.empty() && board_serial.empty();
+	}
+};
+
+FUNCTION_RETURN getMotherboardInfo(MotherboardInfo& motherboardInfo);
+FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfo);
 FUNCTION_RETURN getDiskInfos(std::vector<DiskInfo>& diskInfos);
 FUNCTION_RETURN getUserHomePath(char[MAX_PATH]);
 FUNCTION_RETURN getModuleName(char buffer[MAX_PATH]);

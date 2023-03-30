@@ -13,7 +13,7 @@ using namespace std;
 namespace license {
 namespace hw_identifier {
 
-static vector<LCC_API_HW_IDENTIFICATION_STRATEGY> available_strategies() {
+std::vector<LCC_API_HW_IDENTIFICATION_STRATEGY> DefaultStrategy::available_strategies() {
 	const os::ExecutionEnvironment exec;
 	LCC_API_VIRTUALIZATION_SUMMARY virtualization = exec.virtualization();
 	vector<LCC_API_HW_IDENTIFICATION_STRATEGY> strategies_to_try;
@@ -35,16 +35,18 @@ static vector<LCC_API_HW_IDENTIFICATION_STRATEGY> available_strategies() {
 	return strategies_to_try;
 }
 
-DefaultStrategy::DefaultStrategy() {}
+DefaultStrategy::DefaultStrategy(const std::vector<LCC_API_HW_IDENTIFICATION_STRATEGY> &strategies)
+	: strategies(strategies.empty() ? available_strategies() : strategies)
+{
+}
 
 DefaultStrategy::~DefaultStrategy() {}
 
 LCC_API_HW_IDENTIFICATION_STRATEGY DefaultStrategy::identification_strategy() const { return STRATEGY_DEFAULT; }
 
 FUNCTION_RETURN DefaultStrategy::generate_pc_id(HwIdentifier& pc_id) const {
-	vector<LCC_API_HW_IDENTIFICATION_STRATEGY> strategy_to_try = available_strategies();
 	FUNCTION_RETURN ret = FUNC_RET_NOT_AVAIL;
-	for (auto it : strategy_to_try) {
+	for (auto it : strategies) {
 		LCC_API_HW_IDENTIFICATION_STRATEGY strat_to_try = it;
 		unique_ptr<IdentificationStrategy> strategy_ptr = IdentificationStrategy::get_strategy(strat_to_try);
 		ret = strategy_ptr->generate_pc_id(pc_id);
@@ -56,10 +58,8 @@ FUNCTION_RETURN DefaultStrategy::generate_pc_id(HwIdentifier& pc_id) const {
 }
 
 std::vector<HwIdentifier> DefaultStrategy::alternative_ids() const {
-	vector<LCC_API_HW_IDENTIFICATION_STRATEGY> strategy_to_try = available_strategies();
 	vector<HwIdentifier> identifiers;
-	FUNCTION_RETURN ret = FUNC_RET_NOT_AVAIL;
-	for (auto it : strategy_to_try) {
+	for (auto it : strategies) {
 		LCC_API_HW_IDENTIFICATION_STRATEGY strat_to_try = it;
 		unique_ptr<IdentificationStrategy> strategy_ptr = IdentificationStrategy::get_strategy(strat_to_try);
 		vector<HwIdentifier> alt_ids = strategy_ptr->alternative_ids();

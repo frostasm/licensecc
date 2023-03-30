@@ -4,6 +4,7 @@
 #include "ethernet.hpp"
 #include "disk_strategy.hpp"
 #include "os_disk_strategy.hpp"
+#include "motherboard_strategy.hpp"
 
 namespace license {
 namespace hw_identifier {
@@ -51,6 +52,9 @@ std::unique_ptr<IdentificationStrategy> IdentificationStrategy::get_strategy(LCC
 			break;
 		case STRATEGY_OS_DISK:
 			result = unique_ptr<IdentificationStrategy>(dynamic_cast<IdentificationStrategy*>(new OsDiskStrategy()));
+			break;
+		case STRATEGY_MOTHERBOARD:
+			result = unique_ptr<IdentificationStrategy>(dynamic_cast<IdentificationStrategy*>(new MotherboardStrategy()));
 			break;
 		default:
 			throw logic_error("strategy not supported");

@@ -18,6 +18,7 @@ using namespace license::os;
 
 const map<int, string> stringByStrategyId = {
 	{STRATEGY_DEFAULT, "DEFAULT"},
+	{STRATEGY_MOTHERBOARD, "Motherboard"},
 	{STRATEGY_OS_DISK, "OS Disk"},
 	{STRATEGY_DISK, "Disk"},
 	{STRATEGY_ETHERNET, "MAC"},

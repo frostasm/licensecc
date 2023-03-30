@@ -9,7 +9,8 @@ ADD_LIBRARY(licensecc_static STATIC
     limits/license_verifier.cpp
     ini/ConvertUTF.cpp
     ../templates/licensecc_properties.h.in
-    $<TARGET_OBJECTS:hw_identifier>
+	thirdparty/xxhash/xxhash.h
+	$<TARGET_OBJECTS:hw_identifier>
     $<TARGET_OBJECTS:locate>
     $<TARGET_OBJECTS:os>
     $<TARGET_OBJECTS:base>

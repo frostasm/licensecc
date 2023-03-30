@@ -27,16 +27,11 @@ std::vector<license::hw_identifier::HwIdentifier> license::hw_identifier::OsDisk
 	FUNCTION_RETURN result = getOsDiskInfo(disk_info);
 
 	if (result == FUNC_RET_OK && disk_info.sn_initialized) {
-		std::array<uint8_t, HW_IDENTIFIER_PROPRIETARY_DATA> sn_data = {};
-		const size_t size = std::min(sn_data.size(), sizeof(disk_info.disk_sn));
-		std::memcpy(sn_data.data(), disk_info.disk_sn, size);
-
 		HwIdentifier pc_id;
 		pc_id.set_identification_strategy(identification_strategy());
-		pc_id.set_data(sn_data);
+		pc_id.set_data(disk_info.disk_serial.data(), disk_info.disk_serial.size());
 		return {pc_id};
 	}
 
-	// TODO: add warnings to logs
 	return {};
 }

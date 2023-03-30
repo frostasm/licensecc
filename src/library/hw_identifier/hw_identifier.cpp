@@ -6,8 +6,13 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include "hw_identifier.hpp"
 #include "../base/base64.h"
+
+#define XXH_STATIC_LINKING_ONLY   /* access advanced declarations */
+#define XXH_IMPLEMENTATION   /* access definitions */
+#include "../thirdparty/xxhash/xxhash.h"
 
 namespace license {
 namespace hw_identifier {
@@ -52,6 +57,20 @@ void HwIdentifier::set_data(const std::array<uint8_t, HW_IDENTIFIER_PROPRIETARY_
 	for (int i = 1; i < HW_IDENTIFIER_PROPRIETARY_DATA; i++) {
 		m_data[i + 1] = data[i];
 	}
+}
+
+void HwIdentifier::set_data(const void * const raw_data, const size_t size)
+{
+	// NOTE: maybe it's worth converting the hash to "little-endian" so that we use the same byte order on all platforms
+	const uint64_t hash = XXH64(raw_data, size, 0);
+	static_assert(HW_IDENTIFIER_PROPRIETARY_DATA <= sizeof(uint64_t),
+			"HW_IDENTIFIER_PROPRIETARY_DATA less than size of uint64_t");
+	// Copy the bytes from the uint64_t to the data array
+	std::array<uint8_t, HW_IDENTIFIER_PROPRIETARY_DATA> data = {};
+	const uint8_t* const hashBytes = reinterpret_cast<const uint8_t* const>(&hash);
+	std::memcpy(&data[0], hashBytes, std::min(data.size(), sizeof(uint64_t)));
+
+	set_data(data);
 }
 
 std::string HwIdentifier::print() const {

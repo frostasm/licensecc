@@ -113,13 +113,17 @@ enum LCC_API_HW_IDENTIFICATION_STRATEGY {
 	*/
 	STRATEGY_OS_DISK = 3,
 	/**
-	* Not yet implemented
+	* Use motherboard info prodict_uuid or prodict_serial or board_serial
 	*/
-	STRATEGY_CPU_SIZE = 4,
+	STRATEGY_MOTHERBOARD = 4,
 	/**
 	* Not yet implemented
 	*/
-	STRATEGY_HOST_NAME = 5,
+	STRATEGY_CPU_SIZE = 5,
+	/**
+	* Not yet implemented
+	*/
+	STRATEGY_HOST_NAME = 6,
 };
 
 /**
@@ -129,13 +133,13 @@ enum LCC_API_HW_IDENTIFICATION_STRATEGY {
 /**
  * List the strategies used when no virtual envrionment is detected
  */
-#define LCC_BARE_TO_METAL_STRATEGIES { STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_HOST_NAME, STRATEGY_NONE }
+#define LCC_BARE_TO_METAL_STRATEGIES { STRATEGY_MOTHERBOARD, STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_ETHERNET, STRATEGY_NONE }
 /**
  * List the strategies used when the software is executing in a virtual machine
  */
 #define LCC_VM_STRATEGIES { STRATEGY_ETHERNET, STRATEGY_NONE }
 #define LCC_LXC_STRATEGIES { STRATEGY_ETHERNET, STRATEGY_NONE }
-#define LCC_DOCKER_STRATEGIES { STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_NONE }
+#define LCC_DOCKER_STRATEGIES { STRATEGY_MOTHERBOARD, STRATEGY_OS_DISK, STRATEGY_DISK, STRATEGY_NONE }
 /**
  * List the strategies used when it's detected an execution in the cloud
  */

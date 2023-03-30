@@ -47,6 +47,8 @@ public:
 	LCC_API_HW_IDENTIFICATION_STRATEGY get_identification_strategy() const;
 	void set_use_environment_var(bool use_env_var);
 	void set_data(const std::array<uint8_t, HW_IDENTIFIER_PROPRIETARY_DATA> &data);
+	// convert any raw data to internal data format
+	void set_data(const void* const raw_data, const size_t size);
 	bool data_match(const std::array<uint8_t, HW_IDENTIFIER_PROPRIETARY_DATA> &data) const;
 	std::string print() const;
 	friend std::ostream &operator<<(std::ostream &output, const HwIdentifier &d) {

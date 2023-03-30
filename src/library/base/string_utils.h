@@ -8,6 +8,7 @@
 #ifndef STRINGUTILS_H_
 #define STRINGUTILS_H_
 
+#include <array>
 #include <cstring>
 #include <string>
 #include <vector>
