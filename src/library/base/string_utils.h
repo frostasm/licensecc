@@ -44,6 +44,9 @@ std::vector<std::string> split_string(const std::string& text, const std::string
 std::vector<std::string> filter_string_lines(const std::vector<std::string>& string_lines,
 											 const std::string& filter_pattern);
 
+std::vector<std::string> filter_string_lines(const std::vector<std::string>& string_lines,
+											 const std::vector<std::string>& filters);
+
 /**
  * replace first "from" substring with "to" value
  */

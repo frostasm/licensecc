@@ -108,6 +108,21 @@ std::vector<string> filter_string_lines(const std::vector<std::string> &string_l
 	return filtered;
 }
 
+std::vector<string> filter_string_lines(const std::vector<std::string> &string_lines, const std::vector<std::string> &filters)
+{
+	std::vector<std::string> filtered;
+	std::copy_if(string_lines.cbegin(), string_lines.cend(), std::back_inserter(filtered),
+				 [filters](const std::string& str) {
+		for (const std::string &filter: filters) {
+			if (str.find(filter) != std::string::npos) {
+				return true;
+			}
+		}
+		return false;
+	});
+	return filtered;
+}
+
 bool replace_string(std::string &str, const std::string &from, const std::string &to)
 {
 	size_t start_pos = str.find(from);
@@ -168,4 +183,5 @@ size_t mstrlcpy(char *dst, const char *src, size_t n) {
 
 	return n_orig - n;
 }
+
 } /* namespace license */

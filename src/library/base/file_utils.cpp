@@ -107,4 +107,13 @@ std::vector<string> filter_lines_text_file(const std::string &text_file_path, co
 	return filtered_lines;
 }
 
+std::vector<string> filter_lines_text_file(const std::string &text_file_path, const std::vector<std::string> &filters,
+										   const std::string &lines_separator, bool * const read_ok)
+{
+	const std::string file_text = read_text_file(text_file_path, read_ok);
+	const std::vector<std::string> text_lines = split_string(file_text, lines_separator);
+	const std::vector<std::string> filtered_lines = filter_string_lines(text_lines, filters);
+	return filtered_lines;
+}
+
 }

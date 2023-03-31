@@ -26,6 +26,8 @@ std::vector<std::string> read_lines_text_file(const std::string &text_file_path,
 											const bool keep_empty = true, bool * const read_ok = nullptr);
 std::vector<std::string> filter_lines_text_file(const std::string& text_file_path, const std::string& filter_text,
 												const std::string& lines_separator = "\n", bool * const read_ok = nullptr);
+std::vector<std::string> filter_lines_text_file(const std::string& text_file_path, const std::vector<std::string>& filters,
+												const std::string& lines_separator = "\n", bool * const read_ok = nullptr);
 
 } /* namespace license */
 

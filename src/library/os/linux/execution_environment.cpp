@@ -27,7 +27,7 @@ using namespace std;
 
 // 0=NO 1=Docker/2=Lxc
 static CONTAINER_TYPE checkContainerProc() {
-	// in docer /proc/self/cgroups contains the "docker" or "lxc" string
+	// in docker /proc/self/cgroup contains the "docker" or "lxc" string
 	// https://stackoverflow.com/questions/23513045/how-to-check-if-a-process-is-running-inside-docker-container
 
 	FILE *fp;

@@ -7,6 +7,7 @@
 #include <string>
 #include <sstream>
 #include "../os.h"
+#include "../../os/execution_environment.hpp"
 #include "../../base/logger.h"
 #include "../../base/string_utils.h"
 #include "../../base/file_utils.hpp"
@@ -346,22 +347,10 @@ FUNCTION_RETURN getMotherboardInfo(MotherboardInfo& motherboardInfo) {
 	return motherboardInfo.empty() ? FUNCTION_RETURN::FUNC_RET_NOT_AVAIL : FUNCTION_RETURN::FUNC_RET_OK;
 }
 
-std::string getRootfsBlockDeviceName() {
+std::string getPartitionParentDeviceName(const std::string &partition_dev_path) {
 	using namespace std;
-	const vector<string> rootfs_mount_lines = filter_lines_text_file("/proc/mounts", " / ", "\n");
-	if (rootfs_mount_lines.size() != 1) {
-		return {};
-	}
-
-	const vector<string> mount_columns = split_string(rootfs_mount_lines[0], " ");
-	if (mount_columns.size() == 0) {
-		return {};
-	}
-
-	// /dev/sda1 - for example
-	const string partition_dev_path = mount_columns[0];
-	if (partition_dev_path.find("/dev/") != 0) {
-		return {};
+	if (partition_dev_path == "overlay") {
+		return{};
 	}
 
 	const vector<string> partition_dev_parts = split_string(partition_dev_path, "/", false);
@@ -382,6 +371,50 @@ std::string getRootfsBlockDeviceName() {
 	}
 
 	return block_device_parts[block_device_parts.size() - 2];
+}
+
+std::string getProcMountDevicePath(const std::vector<std::string> &filters) {
+	using namespace std;
+	const vector<string> mount_lines = filter_lines_text_file("/proc/mounts", filters);
+	if (mount_lines.size() == 0) {
+		return {};
+	}
+
+	const vector<string> mount_columns = split_string(mount_lines[0], " ");
+	if (mount_columns.size() == 0) {
+		return {};
+	}
+
+	// /dev/sda1 - for example
+	const string partition_dev_path = trim_copy(mount_columns[0]);
+	if (partition_dev_path.find("/dev/") != 0) {
+		return {};
+	}
+
+	return partition_dev_path;
+}
+
+std::string getRootfsDeviceName() {
+	const std::string partition_dev_path = getProcMountDevicePath({" / "});
+	return getPartitionParentDeviceName(partition_dev_path);
+}
+
+std::string getDockerRootfsDeviceName() {
+	using namespace std;
+	const string rootfsDeviceName = getRootfsDeviceName();
+	if (!rootfsDeviceName.empty()) {
+		return rootfsDeviceName;
+	}
+
+	/*
+	$ cat /proc/mounts | grep etc
+	/dev/sda5 /etc/resolv.conf ext4 rw,relatime,errors=remount-ro 0 0
+	/dev/sda5 /etc/hostname ext4 rw,relatime,errors=remount-ro 0 0
+	/dev/sda5 /etc/hosts ext4 rw,relatime,errors=remount-ro 0 0
+	*/
+	const vector<string> etcFiles = {" /etc/resolv.conf ", " /etc/hostname ", " /etc/hosts "};
+	const string partition_dev_path = getProcMountDevicePath(etcFiles);
+	return getPartitionParentDeviceName(partition_dev_path);
 }
 
 std::vector<std::string> getLinkFilesList(const std::string& src_dir) {
@@ -473,7 +506,8 @@ FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfo) {
 	diskInfo = {}; // clear diskInfo
 
 	using namespace std;
-	const string block_device_name = getRootfsBlockDeviceName();
+	const os::ExecutionEnvironment execEnv;
+	const string block_device_name = execEnv.is_docker() ? getDockerRootfsDeviceName() : getRootfsDeviceName();
 	const string block_device_serial = getBlockDeviceSerial(block_device_name);
 #ifndef NDEBUG
 	LOG_DEBUG("rootfs block device \"%s\" serial: \"%s\"", block_device_name.c_str(), block_device_serial.c_str());
