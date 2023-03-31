@@ -1,20 +1,21 @@
-#include <paths.h>
-#include <sys/stat.h>
-#include <stdio.h>
+#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
 #include <string>
-#include <stdio.h>
-#include <string.h>
 #include <sstream>
 #include "../os.h"
 #include "../../base/logger.h"
 #include "../../base/string_utils.h"
 #include "../../base/file_utils.hpp"
 
+#include <stdio.h>
+#include <string.h>
+#include <paths.h>
+#include <sys/stat.h>
+#include <stdio.h>
 #include <mntent.h>
 #include <dirent.h>
 #include <sys/utsname.h>
@@ -345,67 +346,143 @@ FUNCTION_RETURN getMotherboardInfo(MotherboardInfo& motherboardInfo) {
 	return motherboardInfo.empty() ? FUNCTION_RETURN::FUNC_RET_NOT_AVAIL : FUNCTION_RETURN::FUNC_RET_OK;
 }
 
+std::string getRootfsBlockDeviceName() {
+	using namespace std;
+	const vector<string> rootfs_mount_lines = filter_lines_text_file("/proc/mounts", " / ", "\n");
+	if (rootfs_mount_lines.size() != 1) {
+		return {};
+	}
+
+	const vector<string> mount_columns = split_string(rootfs_mount_lines[0], " ");
+	if (mount_columns.size() == 0) {
+		return {};
+	}
+
+	// /dev/sda1 - for example
+	const string partition_dev_path = mount_columns[0];
+	if (partition_dev_path.find("/dev/") != 0) {
+		return {};
+	}
+
+	const vector<string> partition_dev_parts = split_string(partition_dev_path, "/", false);
+	if (partition_dev_parts.size() != 2) {
+		return {};
+	}
+
+	const string partition_name = trim_copy(partition_dev_parts[1]);
+	string sys_fs_partition_path = "/sys/class/block/{DEVNAME}"; // /sys/class/block/sda1
+	replace_string(sys_fs_partition_path, "{DEVNAME}", partition_name);
+
+	// "../../devices/pci00:00/00:17.0/ata1/host0/target/0:0/block/sda/sda1"
+	//                                                              ^
+	const string sys_fs_block_device_path = os_readlink(sys_fs_partition_path);
+	const vector<string> block_device_parts = split_string(sys_fs_block_device_path, "/", true);
+	if (block_device_parts.size() < 2) {
+		return {};
+	}
+
+	return block_device_parts[block_device_parts.size() - 2];
+}
+
+std::vector<std::string> getLinkFilesList(const std::string& src_dir) {
+	std::vector<std::string> files;
+	DIR* dir = opendir(src_dir.c_str());
+	if (dir == nullptr) {
+		std::cerr << "Failed to open directory: " << src_dir.c_str() << " error: " << strerror(errno) << std::endl;
+		return files;
+	}
+
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != nullptr) {
+		if (entry->d_type == DT_LNK) {  // symlink
+			files.emplace_back(entry->d_name);
+		}
+	}
+
+	std::sort(files.begin(), files.end());
+	return files;
+}
+
+std::string getBlockDeviceSerial(const std::string &block_device_name) {
+	using namespace std;
+	if (block_device_name.empty()) {
+		return {};
+	}
+
+	// Try to read serial number from sys fs
+	string sys_fs_block_serial_path = "/sys/block/{DEVNAME}/device/serial";
+	replace_string(sys_fs_block_serial_path, "{DEVNAME}", block_device_name);
+
+	const vector<string> serial_text_lines = read_lines_text_file(sys_fs_block_serial_path, "\n", false);
+	if (!serial_text_lines.empty()) {
+		const string block_device_serial = trim_copy(serial_text_lines[0]);
+		if (!block_device_serial.empty()) {
+			return block_device_serial;
+		}
+	}
+
+	// Try to read serial number from /dev/disk/by-id/xxxx
+	/**
+	ata-Samsung_SSD_XXX_EVO_1TB_SN123456789A -> ../../sda -> use ata
+	ata-Samsung_SSD_XXX_EVO_1TB_SN123456789A-part1 -> ../../sda1
+	nvme-eui.012345b678b901b2 -> ../../nvme0n1
+	nvme-eui.012345b678b901b2-part1 -> ../../nvme0n1p1
+	nvme-SAMSUNG_XXXX256XXXX-000XX_SN123456789B -> ../../nvme0n1 -> use nvme
+	nvme-SAMSUNG_XXXX256XXXX-000XX_SN123456789B-part1 -> ../../nvme0n1p1
+	wwn-0x1234567e89012b1e -> ../../sda
+	wwn-0x1234567e89012b1e-part1 -> ../../sda1
+	**/
+
+	auto fileName = [](const string &path) {
+		const vector<string> parts = split_string(path, "/", false);
+		return parts.empty() ? string{} : parts[parts.size() - 1];
+	};
+
+	const string ataPrefix = "ata-";
+	const string nvmePrefix = "nvme-";
+	const std::string diskByIdDir = "/dev/disk/by-id/";
+
+	const std::vector<std::string> linkFileNames = getLinkFilesList(diskByIdDir);
+	for(const std::string &name: linkFileNames) {
+		const bool processLink = (name.find(ataPrefix) == 0 && name.find(ataPrefix + "eui.") != 0)
+				|| (name.find(nvmePrefix) == 0 && name.find(nvmePrefix + "eui.") != 0);
+		if (processLink) {
+			const string linkTarget = os_readlink(diskByIdDir + name);
+			const string targetFileName = fileName(linkTarget);
+			if (targetFileName == block_device_name) {
+				const int offset = name.find(ataPrefix) == 0 ? ataPrefix.size() : nvmePrefix.size();
+				const string block_device_serial_long = trim_copy(name.substr(offset));
+				// SAMSUNG_XXXX256XXXX-000XX_SN123456789B => serial number: SN123456789B
+				const vector<string> parts = split_string(block_device_serial_long, "_", false);
+				if (!parts.empty()) {
+					return trim_copy(parts[parts.size() - 1]);
+				}
+			}
+		}
+	}
+
+	return {};
+}
+
 /**
  * Try to read rootfs block device (disk) serial number
  * @param diskInfo used to output the disk information
  * @return
  */
 FUNCTION_RETURN getOsDiskInfo(DiskInfo& diskInfo) {
+	diskInfo = {}; // clear diskInfo
+
 	using namespace std;
-	const vector<string> rootfs_mount_lines = filter_lines_text_file("/proc/mounts", " / ", "\n");
-	if (rootfs_mount_lines.size() != 1) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	const vector<string> mount_columns = split_string(rootfs_mount_lines[0], " ");
-	if (mount_columns.size() == 0) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	// /dev/sda1 - for example
-	const string partition_dev_path = mount_columns[0];
-	if (partition_dev_path.find("/dev/") != 0) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	const vector<string> partition_dev_parts = split_string(partition_dev_path, "/", false);
-	if (partition_dev_parts.size() != 2) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	const string partition_name = partition_dev_parts[1];
-	string sys_fs_partition_path = "/sys/class/block/{DEVNAME}"; // /sys/class/block/sda1
-	replace_string(sys_fs_partition_path, "{DEVNAME}", partition_name);
-
-	// "../../devices/pci00:00/00:17.0/ata1/host0/target/0:0/block/sda/sda1"
-	const string sys_fs_block_device_path = os_readlink(sys_fs_partition_path);
-	const vector<string> block_device_parts = split_string(sys_fs_block_device_path, "/", true);
-	if (block_device_parts.size() < 2) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	// ['..', '..', 'devices', 'pci00:00', '00:17.0', 'ata1', 'host0', 'target', '0:0', 'block', 'sda', 'sda1'] => "sda"
-	const string block_device_name = block_device_parts[block_device_parts.size() - 2];
-	string sys_fs_block_serial_path = "/sys/block/{DEVNAME}/device/serial";
-	replace_string(sys_fs_block_serial_path, "{DEVNAME}", block_device_name);
-
-	const vector<string> serial_text_lines = read_lines_text_file(sys_fs_block_serial_path, "\n", false);
-	if (serial_text_lines.empty()) {
-		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
-	}
-
-	const string block_device_serial = trim_copy(serial_text_lines[0]);
-
+	const string block_device_name = getRootfsBlockDeviceName();
+	const string block_device_serial = getBlockDeviceSerial(block_device_name);
 #ifndef NDEBUG
 	LOG_DEBUG("rootfs block device \"%s\" serial: \"%s\"", block_device_name.c_str(), block_device_serial.c_str());
 #endif
-
 	if (block_device_serial.empty()) {
 		return FUNCTION_RETURN::FUNC_RET_NOT_AVAIL;
 	}
 
-	diskInfo = {};
-	copy_string_to_c_array(partition_dev_path, diskInfo.device);
+	copy_string_to_c_array(string("/dev/") + block_device_name, diskInfo.device);
 	copy_string_to_c_array(block_device_serial, diskInfo.disk_sn);
 	diskInfo.disk_serial = block_device_serial;
 	diskInfo.sn_initialized = true;
