@@ -6,11 +6,13 @@
 #include <unordered_map>
 #include <string>
 #include <sstream>
+#include <memory>
 #include "../os.h"
 #include "../../os/execution_environment.hpp"
 #include "../../base/logger.h"
 #include "../../base/string_utils.h"
 #include "../../base/file_utils.hpp"
+#include "../../thirdparty/json/json.hpp"
 
 #include <stdio.h>
 #include <string.h>
@@ -49,6 +51,10 @@ static void parseUUID(const char *uuid, unsigned char *buffer_out, unsigned int 
 	unsigned char cur_character;
 	// remove characters not in hex set
 	size_t len = strlen(uuid);
+	if (len == 0) {
+		return;
+	}
+
 	hexuuid = (char *)malloc(sizeof(char) * len);
 	memset(buffer_out, 0, out_size);
 	memset(hexuuid, 0, sizeof(char) * len);
@@ -347,18 +353,77 @@ FUNCTION_RETURN getMotherboardInfo(MotherboardInfo& motherboardInfo) {
 	return motherboardInfo.empty() ? FUNCTION_RETURN::FUNC_RET_NOT_AVAIL : FUNCTION_RETURN::FUNC_RET_OK;
 }
 
-std::string getPartitionParentDeviceName(const std::string &partition_dev_path) {
-	using namespace std;
-	if (partition_dev_path == "overlay") {
-		return{};
+std::string exec_cmd(const std::string &cmd, bool *ok = nullptr) {
+	std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.data(), "r"), pclose);
+	if (ok) {
+		*ok = bool(pipe);
 	}
 
-	const vector<string> partition_dev_parts = split_string(partition_dev_path, "/", false);
-	if (partition_dev_parts.size() != 2) {
+	if (!pipe) {
 		return {};
 	}
 
-	const string partition_name = trim_copy(partition_dev_parts[1]);
+	std::string result;
+	std::array<char, 1024> buffer;
+	while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+		result += buffer.data();
+	}
+	return result;
+}
+
+std::string get_file_name(const std::string &file_path) {
+	const std::vector<std::string> parts = split_string(file_path, "/");
+	return parts.empty() ? std::string{} : parts[parts.size() - 1];
+}
+
+std::string getMapperRootDeviceName(const std::string &partition_dev_path) {
+	using namespace std;
+	using json = nlohmann::json;
+
+	const string partition_name = get_file_name(partition_dev_path);
+	const string lsblk_json_tree_text = exec_cmd("lsblk --json --inverse");
+
+	const string key_name{"name"};
+	const string key_children{"children"};
+
+	const json lsblk_json_tree = json::parse(lsblk_json_tree_text, nullptr, false);
+	if (lsblk_json_tree.is_object()) {
+		const json block_devices = lsblk_json_tree.contains("blockdevices") ? lsblk_json_tree["blockdevices"] : json{};
+		if (block_devices.is_array()) {
+			json partition_device;
+			for (const auto &device: block_devices) {
+				if (device.contains(key_name) && device[key_name] == partition_name) {
+					partition_device = device;
+				}
+			}
+
+			if (partition_device.contains(key_children)) {
+				json json_root_device = partition_device;
+				while (json_root_device.contains(key_children)) {
+					const auto children = json_root_device[key_children];
+					json_root_device = children.is_array() && children.size() == 1 ? children[0] : json{};
+				}
+				if (json_root_device.contains(key_name)) {
+					return json_root_device[key_name].get<string>();
+				}
+			}
+		}
+	}
+
+	return {};
+}
+
+std::string getPartitionParentDeviceName(const std::string &partition_dev_path) {
+	using namespace std;
+	if (partition_dev_path.find("/dev/") != 0) {
+		return {};
+	}
+
+	if (partition_dev_path.find("/dev/mapper/") == 0) {
+		return getMapperRootDeviceName(partition_dev_path);
+	}
+
+	const string partition_name = get_file_name(partition_dev_path);
 	string sys_fs_partition_path = "/sys/class/block/{DEVNAME}"; // /sys/class/block/sda1
 	replace_string(sys_fs_partition_path, "{DEVNAME}", partition_name);
 
@@ -373,9 +438,10 @@ std::string getPartitionParentDeviceName(const std::string &partition_dev_path) 
 	return block_device_parts[block_device_parts.size() - 2];
 }
 
-std::string getProcMountDevicePath(const std::vector<std::string> &filters) {
+std::string getProcMountDevicePath(const std::vector<std::string> &lines_filters) {
 	using namespace std;
-	const vector<string> mount_lines = filter_lines_text_file("/proc/mounts", filters);
+
+	const vector<string> mount_lines = filter_lines_text_file("/proc/mounts", lines_filters);
 	if (mount_lines.size() == 0) {
 		return {};
 	}
@@ -385,7 +451,7 @@ std::string getProcMountDevicePath(const std::vector<std::string> &filters) {
 		return {};
 	}
 
-	// /dev/sda1 - for example
+	// /dev/sda1, overlay, tmpfs - etc
 	const string partition_dev_path = trim_copy(mount_columns[0]);
 	if (partition_dev_path.find("/dev/") != 0) {
 		return {};
@@ -466,11 +532,6 @@ std::string getBlockDeviceSerial(const std::string &block_device_name) {
 	wwn-0x1234567e89012b1e-part1 -> ../../sda1
 	**/
 
-	auto fileName = [](const string &path) {
-		const vector<string> parts = split_string(path, "/", false);
-		return parts.empty() ? string{} : parts[parts.size() - 1];
-	};
-
 	const string ataPrefix = "ata-";
 	const string nvmePrefix = "nvme-";
 	const std::string diskByIdDir = "/dev/disk/by-id/";
@@ -481,7 +542,7 @@ std::string getBlockDeviceSerial(const std::string &block_device_name) {
 				|| (name.find(nvmePrefix) == 0 && name.find(nvmePrefix + "eui.") != 0);
 		if (processLink) {
 			const string linkTarget = os_readlink(diskByIdDir + name);
-			const string targetFileName = fileName(linkTarget);
+			const string targetFileName = get_file_name(linkTarget);
 			if (targetFileName == block_device_name) {
 				const int offset = name.find(ataPrefix) == 0 ? ataPrefix.size() : nvmePrefix.size();
 				const string block_device_serial_long = trim_copy(name.substr(offset));

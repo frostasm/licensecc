@@ -10,6 +10,7 @@ ADD_LIBRARY(licensecc_static STATIC
     ini/ConvertUTF.cpp
     ../templates/licensecc_properties.h.in
 	thirdparty/xxhash/xxhash.h
+	thirdparty/json/json.hpp
 	$<TARGET_OBJECTS:hw_identifier>
     $<TARGET_OBJECTS:locate>
     $<TARGET_OBJECTS:os>
